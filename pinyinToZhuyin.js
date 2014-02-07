@@ -46,15 +46,15 @@ var finals = {
   //This one might not occur.
   ueng : 'ㄨㄥ',
   ong : 'ㄨㄥ',
-  i : 'ㄧ',
-  ia : 'ㄧㄚ',
-  ie : 'ㄧㄝ',
-  iao : 'ㄧㄠ',
-  iu : 'ㄧㄡ',
-  ian : 'ㄧㄢ',
-  iang : 'ㄧㄤ',
-  'in' : 'ㄧㄣ',
-  ing : 'ㄧㄥ',
+  i : '一',
+  ia : '一ㄚ',
+  ie : '一ㄝ',
+  iao : '一ㄠ',
+  iu : '一ㄡ',
+  ian : '一ㄢ',
+  iang : '一ㄤ',
+  'in' : '一ㄣ',
+  ing : '一ㄥ',
   'ü' : 'ㄩ',
   'üe' : 'ㄩㄝ',
   'üan' : 'ㄩㄢ',
@@ -92,15 +92,15 @@ var individuals = {
   wang : 'ㄨㄤ',
   wen : 'ㄨㄣ',
   weng : 'ㄨㄥ',
-  yi : 'ㄧ',
-  ya : 'ㄧㄚ',
-  ye : 'ㄧㄝ',
-  yao : 'ㄧㄠ',
-  you : 'ㄧㄡ',
-  yan : 'ㄧㄢ',
-  yang : 'ㄧㄤ',
-  yin : 'ㄧㄣ',
-  ying : 'ㄧㄥ',
+  yi : '一',
+  ya : '一ㄚ',
+  ye : '一ㄝ',
+  yao : '一ㄠ',
+  you : '一ㄡ',
+  yan : '一ㄢ',
+  yang : '一ㄤ',
+  yin : '一ㄣ',
+  ying : '一ㄥ',
   yu : 'ㄩ',
   yue : 'ㄩㄝ',
   yuan : 'ㄩㄢ',
@@ -169,40 +169,40 @@ var findBetween = function(list, min, max){
   }
   return -1;
 };
+var toLower = function(x){
+  if(x) return x.toLowerCase();
+};
+//I sort the regex options by length so the longer ones have precedence
+var lenComp = function(a,b){
+  if(a.length === b.length) return 0;
+  return (a.length < b.length) ? 1 : -1;
+};
+var individualRexp = new RegExp('^(' +
+    getKeys(individuals).sort(lenComp).join('|') +
+    ')(\\d)?', 'i');
+var initialFinalRexp = new RegExp('^(' +
+    getKeys(initials).sort(lenComp).join('|') + ')(' +
+    getKeys(finals).sort(lenComp).join('|') +
+    ')(\\d)?', 'i');
 var pinyinToZhuyin = function(pinyinText){
   var accentedChars = findAccentedChars(pinyinText);
   var sortedAccentedIndicies = getKeys(accentedChars).map(function(x){
     return parseInt(x, 10);
   });
   var text = removeAccents(accentedChars, pinyinText);
-  //I sort the regex options by lenght so the longer ones have precedence
-  var len = function(a,b){return a.length < b.length;};
-  var toLower = function(x){
-    if(x) return x.toLowerCase();
-  };
-  var individualRexp = new RegExp('^(' +
-    getKeys(individuals).sort(len).join('|') +
-    ')(\\d)?', 'i');
-  var initialFinalRexp = new RegExp('^(' +
-    getKeys(initials).sort(len).join('|') + ')(' +
-    getKeys(finals).sort(len).join('|') +
-    ')(\\d)?', 'i');
-  var parse;
-  var tokens = [];
-  var token;
-  var detectedToneIdx;
-  var i = 0;
-  while(i < text.length){
-    token = {
+  
+  var parseToken = function(i){
+    var parse, detectedToneIdx;
+    var token = {
       start : i
     };
-    parse = text.slice(i).match(individualRexp);
+    parse = text.slice(i).match(initialFinalRexp);
     if(parse) {
       parse = parse.map(toLower);
-      token.zhuyin = individuals[parse[1]];
+      token.zhuyin = initials[parse[1]] + finals[parse[2]];
       token.type = 'pinyin';
-      if(typeof(parse[2]) !== 'undefined') {
-        token.tone = parseInt(parse[2], 10);
+      if(typeof(parse[3]) !== 'undefined') {
+        token.tone = parseInt(parse[3], 10);
       } else {
         detectedToneIdx = findBetween(sortedAccentedIndicies, i, i + parse[0].length);
         if(detectedToneIdx >= 0) {
@@ -212,13 +212,13 @@ var pinyinToZhuyin = function(pinyinText){
         }
       }
     } else {
-      parse = text.slice(i).match(initialFinalRexp);
+      parse = text.slice(i).match(individualRexp);
       if(parse) {
         parse = parse.map(toLower);
-        token.zhuyin = initials[parse[1]] + finals[parse[2]];
+        token.zhuyin = individuals[parse[1]];
         token.type = 'pinyin';
-        if(typeof(parse[3]) !== 'undefined') {
-          token.tone = parseInt(parse[3], 10);
+        if(typeof(parse[2]) !== 'undefined') {
+          token.tone = parseInt(parse[2], 10);
         } else {
           detectedToneIdx = findBetween(sortedAccentedIndicies, i, i + parse[0].length);
           if(detectedToneIdx >= 0) {
@@ -233,10 +233,16 @@ var pinyinToZhuyin = function(pinyinText){
       }
     }
     token.parse = parse;
-    tokens.push(token);
-    i += token.parse[0].length;
+    return token;
+  };
+  var tokens = [];
+  var curToken;
+  var i = 0;
+  while(i < text.length){
+    curToken = parseToken(i);
+    tokens.push(curToken);
+    i += curToken.parse[0].length;
   }
-  console.log(tokens);
   return tokens.map(function(token){
     if(token.type === 'other') return token.parse.join('');
     return token.zhuyin + token.tone;
