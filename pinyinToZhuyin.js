@@ -133,8 +133,12 @@ var findAccentedChars = function(text){
   var accentsFound = {};
   for(var i = 0; i < text.length; i++){
     for (var accentedChar in toneMap) {
-      if(text[i] === accentedChar) {
-        accentsFound[i] = toneMap[accentedChar];
+      if(text[i].toLowerCase() === accentedChar) {
+        if(text[i].toLowerCase() === text[i]) {
+          accentsFound[i] = toneMap[accentedChar];
+        } else {
+          accentsFound[i] = toneMap[accentedChar].toUpperCase();
+        }
       }
     }
   }
